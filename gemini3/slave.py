@@ -1,9 +1,23 @@
 from machine import Pin, SPI, PWM
 import time
 from sx1262mini import SX1262Mini
+import stm
 
-# Настройка ШИМ (сервоприводы и ESC)
-pwms = tuple(PWM(Pin(p), freq=50) for p in ('A8', 'A9', 'A10', 'A11'))
+# Настройка ШИМ (пины B6-B9 аппаратно привязаны к таймеру TIM4)
+pin_names = ('B6', 'B7', 'B8', 'B9')
+
+# 1. Сначала создаем обычный ШИМ (MicroPython сам выставит нужные Alternate Functions)
+pwms = tuple(PWM(Pin(p), freq=50) for p in pin_names)
+
+# 2. Переключаем типы выходов пинов B6-B9 в режим Открытого Стока (Open Drain) через регистр GPIOB_OTYPER
+# Смещение регистра OTYPER для STM32F4 = 0x04. Устанавливаем биты 6, 7, 8, 9 в '1'.
+GPIOB_BASE = 0x40020400
+REG_OTYPER = GPIOB_BASE + 0x04
+
+# Читаем текущее состояние регистра, поднимаем биты 6, 7, 8, 9 и записываем обратно
+current_otyper = stm.mem32[REG_OTYPER]
+stm.mem32[REG_OTYPER] = current_otyper | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9)
+
 
 # Настройка радио
 spi = SPI(1, baudrate=8_000_000, polarity=0, phase=0)
